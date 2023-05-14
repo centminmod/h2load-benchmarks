@@ -117,7 +117,7 @@ JSON_OUTPUT=$(awk '
     }", time, req_per_sec, mbs,\
     total_req, started_req, done_req, succeeded_req, failed_req, errored_req, timeout_req,\
     status_2xx, status_3xx, status_4xx, status_5xx,\
-    total_traffic, header_traffic, data_traffic_savings,\
+    total_traffic, header_traffic, data_traffic,\
     req_min, req_max, req_mean, req_sd, req_sd_pct,\
     conn_min, conn_max, conn_mean, conn_sd, conn_sd_pct,\
     first_byte_min, first_byte_max, first_byte_mean, first_byte_sd, first_byte_sd_pct,\
