@@ -38,6 +38,9 @@ format_time(x, unit) = \
 # Adjust the bottom margin
 set bmargin 5
 
+# Add text label for GitHub link
+set label at screen 0.06, 0.02 "https://github.com/centminmod/h2load-benchmarks" left font "arial,12"
+
 plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
      "output.csv" using 1:3 title 'avg response time' axes x1y2 with linespoints ls 2, \
