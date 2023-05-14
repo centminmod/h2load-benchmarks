@@ -96,7 +96,7 @@ fi
 
 # Parse h2load output and convert it to JSON format
 JSON_OUTPUT=$(awk '
-  /finished in/ {time=$3; req_per_sec=$4; mbs=$6}
+  /finished in/ {time=$3; sub(/,$/, "", time); req_per_sec=$4; mbs=$6}
   /requests:/ {total_req=$2; started_req=$4; done_req=$6; succeeded_req=$8; failed_req=$10; errored_req=$12; timeout_req=$14}
   /status codes:/ {status_2xx=$3; status_3xx=$5; status_4xx=$7; status_5xx=$9}
   /traffic:/ {total_traffic=$2; header_traffic=$5; data_traffic=$11; data_traffic_savings=$10}
