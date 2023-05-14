@@ -3,6 +3,7 @@
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 RAW_LOG_PREFIX="h2load-logs/h2load-raw-$TIMESTAMP"
 STATS_JSON="h2load-logs/h2load-stats-$TIMESTAMP.json"
+STATS_CSV="h2load-logs/h2load-stats-$TIMESTAMP.csv"
 
 # Ensure the h2load-logs directory exists
 mkdir -p h2load-logs
@@ -158,6 +159,9 @@ if [ $BATCH_MODE -eq 1 ]; then
         JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
         # Append JSON output to a file
         printf "%s\n" "$JSON_OUTPUT" >> "$STATS_JSON"
+        # CSV log
+        jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
+        \cp -af "$STATS_CSV" output.csv
         # Display the JSON output
         printf "%s\n" "$JSON_OUTPUT"
     done
@@ -173,6 +177,9 @@ else
     JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
     # Save JSON output to a file
     printf "%s\n" "$JSON_OUTPUT" > "$STATS_JSON"
+    # CSV log
+    jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
+    \cp -af "$STATS_CSV" output.csv
     # Display the JSON output
     printf "%s\n" "$JSON_OUTPUT"
 fi
