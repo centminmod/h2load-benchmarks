@@ -102,7 +102,7 @@ JSON_OUTPUT=$(awk '
   /traffic:/ {total_traffic=$2; header_traffic=$5; data_traffic=$11; data_traffic_savings=$10}
   /time for request:/ {req_min=$4; req_max=$5; req_mean=$6; req_sd=$7; req_sd_pct=$8}
   /time for connect:/ {conn_min=$4; conn_max=$5; conn_mean=$6; conn_sd=$7; conn_sd_pct=$8}
-  /time to 1st byte:/ {first_byte_min=$5; first_byte_max=$6; first_byte_mean=$7; first_byte_sd=$8; first_byte_sd_pct=93}
+  /time to 1st byte:/ {first_byte_min=$5; first_byte_max=$6; first_byte_mean=$7; first_byte_sd=$8; first_byte_sd_pct=$9}
   /req\/s/ {req_s_min=$3; req_s_max=$4; req_s_mean=$5; req_s_sd=$6; req_s_sd_pct=$7}
   /Cipher:/ {cipher=$2}
   /Server Temp Key:/ {tempkey=$4}
