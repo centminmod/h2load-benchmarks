@@ -1,9 +1,9 @@
 #!/usr/bin/gnuplot
 
-set terminal pngcairo enhanced font "arial,12" fontscale 1.0 size 1280, 800
+set terminal pngcairo enhanced font "arial,13" fontscale 1.0 size 1280, 800
 set output 'output.png'
 set datafile separator ","
-set key outside
+set key outside below right
 set autoscale y2
 set grid
 
@@ -11,9 +11,10 @@ set grid
 set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5
 set style line 2 lc rgb '#dd181f' lt 1 lw 2 pt 5 ps 1.5
 
-set border linewidth 1.5
+set border linewidth 1.0
 set tics nomirror out scale 0.75
 set format '%g'
+set offsets 0.1, 0.1, 0.1, 0.1
 
 set xlabel "User Connections" font "arial,12"
 set ylabel "Requests/s" font "arial,12"
@@ -22,15 +23,20 @@ set y2label "Avg Response Time" font "arial,12"
 set ytics nomirror
 set y2tics
 
+set title "h2load HTTP/2 HTTPS Benchmark"
+
 # Round the labels to whole numbers
 round(x) = sprintf("%.0f", x)
 
-# Format the labels based on time units
+# Format the labels based on time units and round up average response time labels
 format_time(x, unit) = \
-    (unit eq "s") ? sprintf("%.2fs", x) : \
-    (unit eq "ms") ? sprintf("%.2fms", x) : \
-    (unit eq "us") ? sprintf("%.2fus", x) : \
-    sprintf("%.2f", x)
+    (unit eq "s") ? sprintf("%.0fs", int(x + 0.5)) : \
+    (unit eq "ms") ? sprintf("%.0fms", int(x + 0.5)) : \
+    (unit eq "us") ? sprintf("%.0fus", int(x + 0.5)) : \
+    sprintf("%.0f", x)
+
+# Adjust the bottom margin
+set bmargin 5
 
 plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
