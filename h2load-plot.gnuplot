@@ -25,7 +25,14 @@ set y2tics
 # Round the labels to whole numbers
 round(x) = sprintf("%.0f", x)
 
+# Format the labels based on time units
+format_time(x, unit) = \
+    (unit eq "s") ? sprintf("%.2fs", x) : \
+    (unit eq "ms") ? sprintf("%.2fms", x) : \
+    (unit eq "us") ? sprintf("%.2fus", x) : \
+    sprintf("%.2f", x)
+
 plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
      "output.csv" using 1:3 title 'avg response time' axes x1y2 with linespoints ls 2, \
-     "output.csv" using 1:3:(round($3)) axes x1y2 with labels notitle offset char 0,1
+     "output.csv" using 1:3:(format_time($3, strcol(3))) axes x1y2 with labels notitle offset char 0,1
