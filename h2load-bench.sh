@@ -104,6 +104,9 @@ JSON_OUTPUT=$(awk '
   /time for connect:/ {conn_min=$4; conn_max=$5; conn_mean=$6; conn_sd=$7; conn_sd_pct=$8}
   /time to 1st byte:/ {first_byte_min=$5; first_byte_max=$6; first_byte_mean=$7; first_byte_sd=$8; first_byte_sd_pct=93}
   /req\/s/ {req_s_min=$3; req_s_max=$4; req_s_mean=$5; req_s_sd=$6; req_s_sd_pct=$7}
+  /Cipher:/ {cipher=$2}
+  /Server Temp Key:/ {tempkey=$4}
+  /Application protocol:/ {protocol=$3}
   END {
     printf "{\
       \"time\": \"%s\", \"req_per_sec\": \"%s\", \"mbs\": \"%s\",\
@@ -113,7 +116,8 @@ JSON_OUTPUT=$(awk '
       \"req_min\": \"%s\", \"req_max\": \"%s\", \"req_mean\": \"%s\", \"req_sd\": \"%s\", \"req_sd_pct\": \"%s\",\
       \"conn_min\": \"%s\", \"conn_max\": \"%s\", \"conn_mean\": \"%s\", \"conn_sd\": \"%s\", \"conn_sd_pct\": \"%s\",\
       \"first_byte_min\": \"%s\", \"first_byte_max\": \"%s\", \"first_byte_mean\": \"%s\", \"first_byte_sd\": \"%s\", \"first_byte_sd_pct\": \"%s\",\
-      \"req_s_min\": \"%s\", \"req_s_max\": \"%s\", \"req_s_mean\": \"%s\", \"req_s_sd\": \"%s\", \"req_s_sd_pct\": \"%s\"\
+      \"req_s_min\": \"%s\", \"req_s_max\": \"%s\", \"req_s_mean\": \"%s\", \"req_s_sd\": \"%s\", \"req_s_sd_pct\": \"%s\",\
+      \"cipher\": \"%s\", \"tempkey\": \"%s\", \"protocol\": \"%s\"\
     }", time, req_per_sec, mbs,\
     total_req, started_req, done_req, succeeded_req, failed_req, errored_req, timeout_req,\
     status_2xx, status_3xx, status_4xx, status_5xx,\
@@ -121,7 +125,7 @@ JSON_OUTPUT=$(awk '
     req_min, req_max, req_mean, req_sd, req_sd_pct,\
     conn_min, conn_max, conn_mean, conn_sd, conn_sd_pct,\
     first_byte_min, first_byte_max, first_byte_mean, first_byte_sd, first_byte_sd_pct,\
-    req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd
+    req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd, cipher, tempkey, protocol
   }' $RAW_LOG)
 
 # Save JSON output to a file
