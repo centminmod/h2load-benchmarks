@@ -48,7 +48,7 @@ Options:
   "first_byte_max": "38.68ms",
   "first_byte_mean": "30.06ms",
   "first_byte_sd": "4.82ms",
-  "first_byte_sd_pct": "93",
+  "first_byte_sd_pct": "80.00%",
   "req_s_min": "246.87",
   "req_s_max": "385.75",
   "req_s_mean": "327.49",
