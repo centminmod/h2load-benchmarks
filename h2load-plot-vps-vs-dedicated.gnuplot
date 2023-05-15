@@ -30,6 +30,9 @@ round(x) = sprintf("%.0f", x)
 # Format the labels based on time units
 format_time(x) = sprintf("%.0fms", x)
 
+# data label sizes
+set label font "arial,9"
+
 # Adjust the bottom margin
 set bmargin 8
 

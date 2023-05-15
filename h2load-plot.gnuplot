@@ -28,6 +28,9 @@ round(x) = sprintf("%.0f", x)
 # Format the labels based on time units
 format_time(x) = sprintf("%.0fms", x)
 
+# data label sizes
+set label font "arial,9"
+
 # Adjust the bottom margin
 set bmargin 5
 
@@ -77,4 +80,3 @@ plot "output2.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
       "output2.csv" using 1:(column(3)):(format_time(column(3))) axes x1y2 with labels notitle offset char 0,1
 
 unset multiplot
-
