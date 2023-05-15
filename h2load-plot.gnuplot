@@ -17,7 +17,7 @@ set offsets 0.1, 0.1, 0.1, 0.1
 
 set xlabel "User Connections" font "arial,12"
 set ylabel "Requests/s" font "arial,12"
-set y2label "Avg / Max Response Time (ms)" font "arial,12"
+set y2label "Avg Response Time (ms)" font "arial,12"
 
 set ytics nomirror
 set y2tics
@@ -40,6 +40,7 @@ set logscale y
 # Separate plot for output.csv
 set output 'output-avg.png'
 set title "h2load HTTP/2 HTTPS Benchmark - Average Response Time (ms)"
+set y2label "Avg Response Time" font "arial,12"
 plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
       "output.csv" using 1:(column(3)) title 'avg response time' axes x1y2 with linespoints ls 2, \
@@ -61,6 +62,7 @@ set multiplot layout 2,1 title "h2load HTTP/2 HTTPS Benchmark"
 
 # Plot for output.csv
 set title "Average Response Time"
+set y2label "Avg Response Time" font "arial,12"
 plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
       "output.csv" using 1:(column(3)) title 'avg response time' axes x1y2 with linespoints ls 2, \
