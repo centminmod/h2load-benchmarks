@@ -4,6 +4,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 RAW_LOG_PREFIX="h2load-logs/h2load-raw-$TIMESTAMP"
 STATS_JSON="h2load-logs/h2load-stats-$TIMESTAMP.json"
 STATS_CSV="h2load-logs/h2load-stats-$TIMESTAMP.csv"
+STATS_MAX_CSV="h2load-logs/h2load-stats-max-$TIMESTAMP.csv"
 
 # Ensure the h2load-logs directory exists
 mkdir -p h2load-logs
@@ -56,13 +57,23 @@ parse_output_to_json() {
   [ -z "$warm_up_time" ] && warm_up_time="null"
 
   awk -v threads="$threads" -v connections="$connections" -v duration="$duration" -v warm_up_time="$warm_up_time" -v requests="$requests" '
+  function convert_time(str) {
+    if (str ~ /^[0-9.]+s$/) {
+      return str * 1000;
+    } else if (str ~ /^[0-9.]+us$/) {
+      return str / 1000;
+    } else if (str ~ /^[0-9.]+ms$/) {
+      return substr(str, 1, length(str)-2);
+    }
+  }
+
   /finished in/ {time=$3; sub(/,$/, "", time); req_per_sec=$4; mbs=$6}
   /requests:/ {total_req=$2; started_req=$4; done_req=$6; succeeded_req=$8; failed_req=$10; errored_req=$12; timeout_req=$14}
   /status codes:/ {status_2xx=$3; status_3xx=$5; status_4xx=$7; status_5xx=$9}
   /traffic:/ {total_traffic=$2; header_traffic=$5; data_traffic=$11; data_traffic_savings=$10}
-  /time for request:/ {req_min=$4; req_max=$5; req_mean=$6; req_sd=$7; req_sd_pct=$8}
-  /time for connect:/ {conn_min=$4; conn_max=$5; conn_mean=$6; conn_sd=$7; conn_sd_pct=$8}
-  /time to 1st byte:/ {first_byte_min=$5; first_byte_max=$6; first_byte_mean=$7; first_byte_sd=$8; first_byte_sd_pct=$9}
+  /time for request:/ {req_min=convert_time($4); req_max=convert_time($5); req_mean=convert_time($6); req_sd=$7; req_sd_pct=$8}
+  /time for connect:/ {conn_min=convert_time($4); conn_max=convert_time($5); conn_mean=convert_time($6); conn_sd=$7; conn_sd_pct=$8}
+  /time to 1st byte:/ {first_byte_min=convert_time($5); first_byte_max=convert_time($6); first_byte_mean=convert_time($7); first_byte_sd=$8; first_byte_sd_pct=$9}
   /req\/s/ {req_s_min=$3; req_s_max=$4; req_s_mean=$5; req_s_sd=$6; req_s_sd_pct=$7}
   /Cipher:/ {cipher=$2}
   /Server Temp Key:/ {tempkey=$4}
@@ -159,9 +170,12 @@ if [ $BATCH_MODE -eq 1 ]; then
         JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
         # Append JSON output to a file
         printf "%s\n" "$JSON_OUTPUT" >> "$STATS_JSON"
-        # CSV log
+        # CSV log for request avg latency
         jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
         \cp -af "$STATS_CSV" output.csv
+        # CSV log 2 for request max latency
+        jq -r '.connections, .req_per_sec, .req_max' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_MAX_CSV"
+        \cp -af "$STATS_MAX_CSV" output2.csv
         # Display the JSON output
         printf "%s\n" "$JSON_OUTPUT"
     done
@@ -177,9 +191,12 @@ else
     JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
     # Save JSON output to a file
     printf "%s\n" "$JSON_OUTPUT" > "$STATS_JSON"
-    # CSV log
+    # CSV log for request avg latency
     jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
     \cp -af "$STATS_CSV" output.csv
+    # CSV log 2 for request max latency
+    jq -r '.connections, .req_per_sec, .req_max' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_MAX_CSV"
+    \cp -af "$STATS_MAX_CSV" output2.csv
     # Display the JSON output
     printf "%s\n" "$JSON_OUTPUT"
 fi
