@@ -8,6 +8,8 @@ yum -y install nghttp2 gnuplot jq
 
 # Usage
 
+Includes a [Batch Mode](#batch-mode) with charting support.
+
 ```
 ./h2load-bench.sh 
 Usage: ./h2load-bench.sh [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch]
@@ -156,6 +158,8 @@ time for connect:     1.55ms     12.47ms      7.50ms      3.50ms    60.00%
 time to 1st byte:    25.43ms     35.52ms     30.03ms      4.73ms    60.00%
 req/s           :     280.64      390.65      329.72       51.35    70.00%
 ```
+
+# Batch Mode
 
 `-b` batch mode will take the connections value `-c 200` and divide it into 4 quarters for 4 `h2load` runs incrementing the by each quarter so `-c 50`, `-c 100`, `-c 150`, `-c 200`.
 
