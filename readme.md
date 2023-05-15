@@ -161,7 +161,7 @@ req/s           :     280.64      390.65      329.72       51.35    70.00%
 
 # Batch Mode
 
-`-b` batch mode will take the connections value `-c 200` and divide it into 4 quarters for 4 `h2load` runs incrementing the by each quarter so `-c 50`, `-c 100`, `-c 150`, `-c 200`.
+`-b` batch mode will take the connections value `-c 400` and divide it into 4 quarters for 4 `h2load` runs incrementing the by each quarter so `-c 100`, `-c 200`, `-c 300`, `-c 400`.
 
 ```
 ./h2load-bench.sh -t 1 -c 400 -n 10000 -b -u https://domain.com | jq
