@@ -12,6 +12,7 @@ Includes a [Batch Mode](#batch-mode) with charting support. Example charting for
 
 * [VPS benchmarks](#batch-mode-vps) 
 * [Dedicated server benchmarks](#batch-mode-dedicated-server).
+* [Comparison Charts](#comparison-charts)
 
 ```
 ./h2load-bench.sh 
@@ -659,3 +660,18 @@ Then run `h2load-plot.gnuplot` to generate chart `output.png`, `output-avg.png` 
 
 ![h2load batch benchmark chart - max response time](charts/dedicated/1t-output-max.png "h2load batch benchmark chart - max response time")
 
+# Comparison Charts
+
+You can take 2 separate `-b` batch mode runs, renaming the 1st runs' `output.csv` and `output2.csv` files to `1t-output.csv` and `1t-output2.csv` and then edit the labels/legends and run `h2load-plot-vps-vs-dedicated.gnuplot` script to compare 2 runs. Below is comparing above [VPS benchmarks](#batch-mode-vps) and [Dedicated server benchmarks](#batch-mode-dedicated-server) runs with dedicated csv files renamed.
+
+`compared-output.png`
+
+![h2load batch benchmark comparison VPS vs Dedicated chart](charts/compared-output.png "h2load batch benchmark comparison VPS vs Dedicated chart")
+
+`compared-output-avg.png`
+
+![h2load batch benchmark comparison VPS vs Dedicated chart - avg response time](charts/compared-output-avg.png "h2load batch benchmark comparison VPS vs Dedicated chart - avg response time")
+
+`compared-output-max.png`
+
+![h2load batch benchmark comparison VPS vs Dedicated chart - max response time](charts/compared-output-max.png "h2load batch benchmark comparison VPS vs Dedicated chart - max response time")
