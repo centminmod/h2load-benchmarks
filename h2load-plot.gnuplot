@@ -1,5 +1,15 @@
 #!/usr/bin/gnuplot
 
+# Set default values for title variables and labels
+title1 = "h2load HTTP/2 HTTPS Benchmark - Average Response Time (ms)"
+title2 = "h2load HTTP/2 HTTPS Benchmark - Maximum Response Time (ms)"
+title3 = "Average Response Time"
+title4 = "Maximum Response Time"
+data_legend1 = 'requests/s'
+data_legend2 = 'requests/s'
+data_legend3 = 'avg response time'
+data_legend4 = 'max response time'
+
 set terminal pngcairo enhanced font "arial,13" fontscale 1.0 size 1280, 800
 set datafile separator ","
 set key outside below right
@@ -42,20 +52,20 @@ set logscale y
 
 # Separate plot for output.csv
 set output 'output-avg.png'
-set title "h2load HTTP/2 HTTPS Benchmark - Average Response Time (ms)"
+set title title1 font "arial,12"
 set y2label "Avg Response Time" font "arial,12"
-plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
+plot "output.csv" using 1:2 title data_legend1 with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
-      "output.csv" using 1:(column(3)) title 'avg response time' axes x1y2 with linespoints ls 2, \
+      "output.csv" using 1:(column(3)) title data_legend3 axes x1y2 with linespoints ls 2, \
       "output.csv" using 1:(column(3)):(format_time(column(3))) axes x1y2 with labels notitle offset char 0,1
 
 # Separate plot for output2.csv
 set output 'output-max.png'
-set title "h2load HTTP/2 HTTPS Benchmark - Maximum Response Time (ms)"
+set title title2 font "arial,12"
 set y2label "Max Response Time" font "arial,12"
-plot "output2.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
+plot "output2.csv" using 1:2 title data_legend2 with linespoints ls 1, \
      "output2.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
-      "output2.csv" using 1:(column(3)) title 'max response time' axes x1y2 with linespoints ls 2, \
+      "output2.csv" using 1:(column(3)) title data_legend4 axes x1y2 with linespoints ls 2, \
       "output2.csv" using 1:(column(3)):(format_time(column(3))) axes x1y2 with labels notitle offset char 0,1
 
 # Multiplot for both
@@ -64,19 +74,19 @@ set output 'output.png'
 set multiplot layout 2,1 title "h2load HTTP/2 HTTPS Benchmark"
 
 # Plot for output.csv
-set title "Average Response Time"
+set title title3 font "arial,12"
 set y2label "Avg Response Time" font "arial,12"
-plot "output.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
+plot "output.csv" using 1:2 title data_legend1 with linespoints ls 1, \
      "output.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
-      "output.csv" using 1:(column(3)) title 'avg response time' axes x1y2 with linespoints ls 2, \
+      "output.csv" using 1:(column(3)) title data_legend3 axes x1y2 with linespoints ls 2, \
       "output.csv" using 1:(column(3)):(format_time(column(3))) axes x1y2 with labels notitle offset char 0,1
 
 # Plot for output2.csv
-set title "Maximum Response Time"
+set title title4 font "arial,12"
 set y2label "Max Response Time" font "arial,12"
-plot "output2.csv" using 1:2 title 'requests/s' with linespoints ls 1, \
+plot "output2.csv" using 1:2 title data_legend2 with linespoints ls 1, \
      "output2.csv" using 1:2:(round($2)) with labels notitle offset char 0,1, \
-      "output2.csv" using 1:(column(3)) title 'max response time' axes x1y2 with linespoints ls 2, \
+      "output2.csv" using 1:(column(3)) title data_legend4 axes x1y2 with linespoints ls 2, \
       "output2.csv" using 1:(column(3)):(format_time(column(3))) axes x1y2 with labels notitle offset char 0,1
 
 unset multiplot
