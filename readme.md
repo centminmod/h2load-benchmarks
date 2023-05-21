@@ -6,6 +6,20 @@
 yum -y install nghttp2 gnuplot jq
 ```
 
+psrecord and matplotlib for logging and chart plotting for local Nginx resource usage
+
+```
+pip install psrecord
+pip install matplotlib
+```
+
+or
+
+```
+pip3 install psrecord
+pip3 install matplotlib
+```
+
 # Usage
 
 Includes a [Batch Mode](#batch-mode) with charting support. Example charting for:
@@ -13,6 +27,7 @@ Includes a [Batch Mode](#batch-mode) with charting support. Example charting for
 * [VPS benchmarks](#batch-mode-vps) 
 * [Dedicated server benchmarks](#batch-mode-dedicated-server).
 * [Comparison Charts](#comparison-charts)
+* [psrecord](#psrecord)
 
 ```
 ./h2load-bench.sh 
@@ -33,8 +48,15 @@ Options:
 
 When h2load binary is built with HTTP/3 QUIC support, UDP sent/received size metrics are provided too and `protocol` reports `h3` tested.
 
+
 ```
-./h2load-bench.sh -t1 -c10 -n100 -u https://domain.com | jq -r
+./h2load-bench.sh -t1 -c10 -n100 -u https://domain.com
+```
+
+or pretty JSON format only:
+
+```
+./h2load-bench.sh -t1 -c10 -n100 -u https://domain.com | grep -oP '{.*}' | jq -r
 {
   "time": "10.12ms",
   "req_per_sec": "9877.52",
@@ -89,7 +111,13 @@ When h2load binary is built with HTTP/3 QUIC support, UDP sent/received size met
 ## JSON parsed HTTP/2 Test
 
 ```
-./h2load-bench.sh -t 1 -c 10 -n 100 -u https://domain.com | jq
+./h2load-bench.sh -t 1 -c 10 -n 100 -u https://domain.com
+```
+
+or pretty JSON format only:
+
+```
+./h2load-bench.sh -t 1 -c 10 -n 100 -u https://domain.com | grep -oP '{.*}' | jq
 {
   "time": "38.44ms",
   "req_per_sec": "2601.59",
@@ -261,7 +289,13 @@ Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cm
 Run `h2load-bench.sh` wrapper script with h2load with 1 thread `-t 1` to load 1/2 the CPU cores of the VPS.
 
 ```
-./h2load-bench.sh -t 1 -c 400 -n 10000 -b -u https://domain.com | jq
+./h2load-bench.sh -t 1 -c 400 -n 10000 -b -u https://domain.com
+```
+
+or JSON pretty format only:
+
+```
+./h2load-bench.sh -t 1 -c 400 -n 10000 -b -u https://domain.com | grep -oP '{.*}' | jq
 {
   "time": "1.09s",
   "req_per_sec": "9165.04",
@@ -508,7 +542,13 @@ Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cm
 Run `h2load-bench.sh` wrapper script with h2load with 3 thread `-t 3` to load only 1/2 the physical CPU cores on dedicated.
 
 ```
-./h2load-bench.sh -t 3 -c 400 -n 10000 -b -u https://domain.com | jq
+./h2load-bench.sh -t 3 -c 400 -n 10000 -b -u https://domain.com
+```
+
+Or JSON pretty format only:
+
+```
+./h2load-bench.sh -t 3 -c 400 -n 10000 -b -u https://domain.com | grep -oP '{.*}' | jq
 {
   "time": "232.01ms",
   "req_per_sec": "43100.85",
@@ -732,3 +772,326 @@ You can take 2 separate `-b` batch mode runs, renaming the 1st runs' `output.csv
 `compared-output-max.png`
 
 ![h2load batch benchmark comparison VPS vs Dedicated chart - max response time](charts/compared-output-max.png "h2load batch benchmark comparison VPS vs Dedicated chart - max response time")
+
+# psrecord
+
+`h2load-bench.sh` added `psrecord` support for local h2load benchmarks tested on local Nginx server to measure local Nginx server's resource usage.
+
+```
+./h2load-bench.sh -t 1 -c 400 -n 10000 -b -u https://domain.com 
+start psrecord ...
+psrecord 3564252 --include-children --interval 0.1 --log psrecord-logs/psrecord-nginx-20230521114310.log --plot psrecord-logs/psrecord-nginx-20230521114310.png &
+
+Attaching to process 3564252
+{      "time": "170.24ms", "req_per_sec": "58740.60", "mbs": "129.38MB/s",      "total_req": "10000", "started_req": "10000", "done_req": "10000", "succeeded_req": "10000", "failed_req": "0", "errored_req": "0", "timeout_req": "0",      "status_2xx": "10000", "status_3xx": "0", "status_4xx": "0", "status_5xx": "0",      "total_traffic": "22.03MB", "header_traffic": "2.16MB", "data_traffic": "19.69MB",      "req_min": "5.22", "req_max": "51.09", "req_mean": "35.32", "req_sd": "8.13ms", "req_sd_pct": "74.98%",      "conn_min": "6.81", "conn_max": "64.34", "conn_mean": "29.51", "conn_sd": "17.93ms", "conn_sd_pct": "62.00%",      "first_byte_min": "29.40", "first_byte_max": "105.12", "first_byte_mean": "63.14", "first_byte_sd": "25.27ms", "first_byte_sd_pct": "52.00%",      "req_s_min": "596.64", "req_s_max": "677.11", "req_s_mean": "631.38", "req_s_sd": "29.86", "req_s_sd_pct": "29.86",      "cipher": "TLS_AES_256_GCM_SHA384", "tempkey": "X25519", "protocol": "h2",      "threads": "1", "connections": "100", "duration": "null", "warm_up_time": "null", "requests": "10000",      "udp_sent": "", "udp_received": ""    }
+{      "time": "211.74ms", "req_per_sec": "47227.29", "mbs": "104.04MB/s",      "total_req": "10000", "started_req": "10000", "done_req": "10000", "succeeded_req": "10000", "failed_req": "0", "errored_req": "0", "timeout_req": "0",      "status_2xx": "10000", "status_3xx": "0", "status_4xx": "0", "status_5xx": "0",      "total_traffic": "22.03MB", "header_traffic": "2.16MB", "data_traffic": "19.69MB",      "req_min": "5.11", "req_max": "78.21", "req_mean": "66.30", "req_sd": "13.61ms", "req_sd_pct": "83.58%",      "conn_min": "18.68", "conn_max": "159.25", "conn_mean": "61.02", "conn_sd": "29.70ms", "conn_sd_pct": "63.50%",      "first_byte_min": "94.24", "first_byte_max": "199.47", "first_byte_mean": "134.58", "first_byte_sd": "25.41ms", "first_byte_sd_pct": "59.00%",      "req_s_min": "240.43", "req_s_max": "301.18", "req_s_mean": "266.97", "req_s_sd": "18.27", "req_s_sd_pct": "18.27",      "cipher": "TLS_AES_256_GCM_SHA384", "tempkey": "X25519", "protocol": "h2",      "threads": "1", "connections": "200", "duration": "null", "warm_up_time": "null", "requests": "10000",      "udp_sent": "", "udp_received": ""    }
+{      "time": "300.75ms", "req_per_sec": "33249.88", "mbs": "73.26MB/s",      "total_req": "10000", "started_req": "10000", "done_req": "10000", "succeeded_req": "10000", "failed_req": "0", "errored_req": "0", "timeout_req": "0",      "status_2xx": "10000", "status_3xx": "0", "status_4xx": "0", "status_5xx": "0",      "total_traffic": "22.03MB", "header_traffic": "2.16MB", "data_traffic": "19.69MB",      "req_min": "8.57", "req_max": "122.04", "req_mean": "72.03", "req_sd": "11.99ms", "req_sd_pct": "85.09%",      "conn_min": "43.41", "conn_max": "231.16", "conn_mean": "132.76", "conn_sd": "58.89ms", "conn_sd_pct": "53.67%",      "first_byte_min": "126.02", "first_byte_max": "286.02", "first_byte_mean": "205.04", "first_byte_sd": "54.10ms", "first_byte_sd_pct": "50.00%",      "req_s_min": "111.92", "req_s_max": "139.40", "req_s_mean": "127.15", "req_s_sd": "10.68", "req_s_sd_pct": "10.68",      "cipher": "TLS_AES_256_GCM_SHA384", "tempkey": "X25519", "protocol": "h2",      "threads": "1", "connections": "300", "duration": "null", "warm_up_time": "null", "requests": "10000",      "udp_sent": "", "udp_received": ""    }
+{      "time": "315.84ms", "req_per_sec": "31661.40", "mbs": "69.78MB/s",      "total_req": "10000", "started_req": "10000", "done_req": "10000", "succeeded_req": "10000", "failed_req": "0", "errored_req": "0", "timeout_req": "0",      "status_2xx": "10000", "status_3xx": "0", "status_4xx": "0", "status_5xx": "0",      "total_traffic": "22.04MB", "header_traffic": "2.16MB", "data_traffic": "19.69MB",      "req_min": "47.70", "req_max": "112.60", "req_mean": "85.23", "req_sd": "16.97ms", "req_sd_pct": "70.88%",      "conn_min": "41.94", "conn_max": "198.02", "conn_mean": "135.69", "conn_sd": "42.08ms", "conn_sd_pct": "73.75%",      "first_byte_min": "91.62", "first_byte_max": "307.91", "first_byte_mean": "220.61", "first_byte_sd": "55.90ms", "first_byte_sd_pct": "73.75%",      "req_s_min": "80.96", "req_s_max": "271.85", "req_s_mean": "124.96", "req_s_sd": "49.27", "req_s_sd_pct": "49.27",      "cipher": "TLS_AES_256_GCM_SHA384", "tempkey": "X25519", "protocol": "h2",      "threads": "1", "connections": "400", "duration": "null", "warm_up_time": "null", "requests": "10000",      "udp_sent": "", "udp_received": ""    }
+
+h2load benchmark JSON results: h2load-logs/h2load-stats-20230521114310.json
+
+
+##################################################################
+parsing & converting nginx psrecord data...
+waiting for psrecord to close its log...
+csv log: psrecord-logs/psrecord-nginx-20230521114310.csv
+json log: psrecord-logs/psrecord-nginx-20230521114310.json
+end psrecord
+```
+
+The h2load benchmark results in JSON format
+
+```
+cat h2load-logs/h2load-stats-20230521114310.json | jq -r
+{
+  "time": "170.24ms",
+  "req_per_sec": "58740.60",
+  "mbs": "129.38MB/s",
+  "total_req": "10000",
+  "started_req": "10000",
+  "done_req": "10000",
+  "succeeded_req": "10000",
+  "failed_req": "0",
+  "errored_req": "0",
+  "timeout_req": "0",
+  "status_2xx": "10000",
+  "status_3xx": "0",
+  "status_4xx": "0",
+  "status_5xx": "0",
+  "total_traffic": "22.03MB",
+  "header_traffic": "2.16MB",
+  "data_traffic": "19.69MB",
+  "req_min": "5.22",
+  "req_max": "51.09",
+  "req_mean": "35.32",
+  "req_sd": "8.13ms",
+  "req_sd_pct": "74.98%",
+  "conn_min": "6.81",
+  "conn_max": "64.34",
+  "conn_mean": "29.51",
+  "conn_sd": "17.93ms",
+  "conn_sd_pct": "62.00%",
+  "first_byte_min": "29.40",
+  "first_byte_max": "105.12",
+  "first_byte_mean": "63.14",
+  "first_byte_sd": "25.27ms",
+  "first_byte_sd_pct": "52.00%",
+  "req_s_min": "596.64",
+  "req_s_max": "677.11",
+  "req_s_mean": "631.38",
+  "req_s_sd": "29.86",
+  "req_s_sd_pct": "29.86",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "tempkey": "X25519",
+  "protocol": "h2",
+  "threads": "1",
+  "connections": "100",
+  "duration": "null",
+  "warm_up_time": "null",
+  "requests": "10000",
+  "udp_sent": "",
+  "udp_received": ""
+}
+{
+  "time": "211.74ms",
+  "req_per_sec": "47227.29",
+  "mbs": "104.04MB/s",
+  "total_req": "10000",
+  "started_req": "10000",
+  "done_req": "10000",
+  "succeeded_req": "10000",
+  "failed_req": "0",
+  "errored_req": "0",
+  "timeout_req": "0",
+  "status_2xx": "10000",
+  "status_3xx": "0",
+  "status_4xx": "0",
+  "status_5xx": "0",
+  "total_traffic": "22.03MB",
+  "header_traffic": "2.16MB",
+  "data_traffic": "19.69MB",
+  "req_min": "5.11",
+  "req_max": "78.21",
+  "req_mean": "66.30",
+  "req_sd": "13.61ms",
+  "req_sd_pct": "83.58%",
+  "conn_min": "18.68",
+  "conn_max": "159.25",
+  "conn_mean": "61.02",
+  "conn_sd": "29.70ms",
+  "conn_sd_pct": "63.50%",
+  "first_byte_min": "94.24",
+  "first_byte_max": "199.47",
+  "first_byte_mean": "134.58",
+  "first_byte_sd": "25.41ms",
+  "first_byte_sd_pct": "59.00%",
+  "req_s_min": "240.43",
+  "req_s_max": "301.18",
+  "req_s_mean": "266.97",
+  "req_s_sd": "18.27",
+  "req_s_sd_pct": "18.27",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "tempkey": "X25519",
+  "protocol": "h2",
+  "threads": "1",
+  "connections": "200",
+  "duration": "null",
+  "warm_up_time": "null",
+  "requests": "10000",
+  "udp_sent": "",
+  "udp_received": ""
+}
+{
+  "time": "300.75ms",
+  "req_per_sec": "33249.88",
+  "mbs": "73.26MB/s",
+  "total_req": "10000",
+  "started_req": "10000",
+  "done_req": "10000",
+  "succeeded_req": "10000",
+  "failed_req": "0",
+  "errored_req": "0",
+  "timeout_req": "0",
+  "status_2xx": "10000",
+  "status_3xx": "0",
+  "status_4xx": "0",
+  "status_5xx": "0",
+  "total_traffic": "22.03MB",
+  "header_traffic": "2.16MB",
+  "data_traffic": "19.69MB",
+  "req_min": "8.57",
+  "req_max": "122.04",
+  "req_mean": "72.03",
+  "req_sd": "11.99ms",
+  "req_sd_pct": "85.09%",
+  "conn_min": "43.41",
+  "conn_max": "231.16",
+  "conn_mean": "132.76",
+  "conn_sd": "58.89ms",
+  "conn_sd_pct": "53.67%",
+  "first_byte_min": "126.02",
+  "first_byte_max": "286.02",
+  "first_byte_mean": "205.04",
+  "first_byte_sd": "54.10ms",
+  "first_byte_sd_pct": "50.00%",
+  "req_s_min": "111.92",
+  "req_s_max": "139.40",
+  "req_s_mean": "127.15",
+  "req_s_sd": "10.68",
+  "req_s_sd_pct": "10.68",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "tempkey": "X25519",
+  "protocol": "h2",
+  "threads": "1",
+  "connections": "300",
+  "duration": "null",
+  "warm_up_time": "null",
+  "requests": "10000",
+  "udp_sent": "",
+  "udp_received": ""
+}
+{
+  "time": "315.84ms",
+  "req_per_sec": "31661.40",
+  "mbs": "69.78MB/s",
+  "total_req": "10000",
+  "started_req": "10000",
+  "done_req": "10000",
+  "succeeded_req": "10000",
+  "failed_req": "0",
+  "errored_req": "0",
+  "timeout_req": "0",
+  "status_2xx": "10000",
+  "status_3xx": "0",
+  "status_4xx": "0",
+  "status_5xx": "0",
+  "total_traffic": "22.04MB",
+  "header_traffic": "2.16MB",
+  "data_traffic": "19.69MB",
+  "req_min": "47.70",
+  "req_max": "112.60",
+  "req_mean": "85.23",
+  "req_sd": "16.97ms",
+  "req_sd_pct": "70.88%",
+  "conn_min": "41.94",
+  "conn_max": "198.02",
+  "conn_mean": "135.69",
+  "conn_sd": "42.08ms",
+  "conn_sd_pct": "73.75%",
+  "first_byte_min": "91.62",
+  "first_byte_max": "307.91",
+  "first_byte_mean": "220.61",
+  "first_byte_sd": "55.90ms",
+  "first_byte_sd_pct": "73.75%",
+  "req_s_min": "80.96",
+  "req_s_max": "271.85",
+  "req_s_mean": "124.96",
+  "req_s_sd": "49.27",
+  "req_s_sd_pct": "49.27",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "tempkey": "X25519",
+  "protocol": "h2",
+  "threads": "1",
+  "connections": "400",
+  "duration": "null",
+  "warm_up_time": "null",
+  "requests": "10000",
+  "udp_sent": "",
+  "udp_received": ""
+}
+```
+
+`psrecord` Nginx resource usage during h2load benchmark run
+
+in CSV format with `psrecord-logs/psrecord-nginx-20230521114310.csv` contents
+
+```csv
+"0.000","0.000","1039.738","2724.336"
+"0.107","152.100","1037.492","2724.336"
+"0.212","92.600","1039.648","2724.336"
+"0.320","196.500","1040.145","2724.336"
+"0.427","47.600","1040.172","2724.336"
+"0.532","104.900","1042.602","2724.336"
+"0.637","156.400","1043.008","2724.336"
+"0.745","85.500","1043.266","2724.336"
+"0.850","47.100","1045.270","2724.336"
+"0.956","162.000","1052.086","2730.336"
+"1.061","95.400","1053.367","2730.336"
+```
+
+in JSON format with `psrecord-logs/psrecord-nginx-20230521114310.json` contents
+
+```json
+[
+  {
+    "time": "0.000",
+    "cpuload": "0.000",
+    "realmem": "1039.738",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.107",
+    "cpuload": "152.100",
+    "realmem": "1037.492",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.212",
+    "cpuload": "92.600",
+    "realmem": "1039.648",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.320",
+    "cpuload": "196.500",
+    "realmem": "1040.145",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.427",
+    "cpuload": "47.600",
+    "realmem": "1040.172",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.532",
+    "cpuload": "104.900",
+    "realmem": "1042.602",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.637",
+    "cpuload": "156.400",
+    "realmem": "1043.008",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.745",
+    "cpuload": "85.500",
+    "realmem": "1043.266",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.850",
+    "cpuload": "47.100",
+    "realmem": "1045.270",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.956",
+    "cpuload": "162.000",
+    "realmem": "1052.086",
+    "virtualmem": "2730.336"
+  },
+  {
+    "time": "1.061",
+    "cpuload": "95.400",
+    "realmem": "1053.367",
+    "virtualmem": "2730.336"
+  }
+]
+```
+
+psrecord charted Nginx CPU and Memory usage
+
+![psrecord charted Nginx CPU/Memory usage](psrecord/psrecord-20230521114310.png "psrecord charted Nginx CPU/Memory usage")

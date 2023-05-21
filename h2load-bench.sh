@@ -5,9 +5,17 @@ RAW_LOG_PREFIX="h2load-logs/h2load-raw-$TIMESTAMP"
 STATS_JSON="h2load-logs/h2load-stats-$TIMESTAMP.json"
 STATS_CSV="h2load-logs/h2load-stats-$TIMESTAMP.csv"
 STATS_MAX_CSV="h2load-logs/h2load-stats-max-$TIMESTAMP.csv"
+PSRECORD_LOG="psrecord-logs/psrecord-nginx-$TIMESTAMP.log"
+PSRECORD_LOG_JSON="psrecord-logs/psrecord-nginx-$TIMESTAMP.json"
+PSRECORD_LOG_CSV="psrecord-logs/psrecord-nginx-$TIMESTAMP.csv"
+PSRECORD_PLOT_IMAGE="psrecord-logs/psrecord-nginx-$TIMESTAMP.png"
+
+# local h2load test psrecord for Nginx resource usage
+PSRECORD_LOCAL='y'
+PSRECORD_DELAY='15'
 
 # Ensure the h2load-logs directory exists
-mkdir -p h2load-logs
+mkdir -p h2load-logs psrecord-logs
 
 # Initialize our own variables
 THREADS=""
@@ -47,6 +55,85 @@ usage() {
     echo "  -b, --batch         Enable batch mode"
     echo "  -h, --help          Display this help message"
     exit 0
+}
+
+converter() {
+  mode="$1"
+  file="$2"
+  if [[ "$mode" = 'json' ]]; then
+    cat "$file" | sed -e '1d' | column -t | tr -s ' ' | jq -nR '[inputs | split(" ") | { "time": .[0], "cpuload": .[1], "realmem": .[2], "virtualmem": .[3] }]'
+  fi
+}
+
+service_info_json() {
+  info_service_name=$1
+  if [[ -n "$info_service_name" ]]; then
+    if [ "$(egrep 'centos:7|CentOS Linux 7' /etc/os-release )" ]; then
+      systemctl show --no-pager $info_service_name | jq --slurp --raw-input 'split("\n") | map(select(. != "") | split("=") | {"key": .[0], "value": (.[1:] | join("="))}) | from_entries' | jq --arg sli_opt $sli_opt -r '{Names: .Names, Description: .Description, Type: .Type, ActiveState: .ActiveState, LoadState: .LoadState, SubState: .SubState, Result: .Result, ExecMainStartTimestamp: .ExecMainStartTimestamp, MainPID: .MainPID, DropInPaths: .DropInPaths, ExecStart: .ExecStart, ExecStartPre: .ExecStartPre, ExecReload: .ExecReload, ExecStop: .ExecStop, PIDFile: .PIDFile, LimitMEMLOCK: .LimitMEMLOCK, LimitNOFILE: .LimitNOFILE, LimitNPROC: .LimitNPROC, After: .After, Before: .Before, Conflicts: .Conflicts, FailureAction: .FailureAction, FragmentPath: .FragmentPath, NotifyAccess: .NotifyAccess, PrivateNetwork: .PrivateNetwork, PrivateTmp: .PrivateTmp, ProtectHome: .ProtectHome, ProtectSystem: .ProtectSystem, Requires: .Requires, Restart: .Restart, RestartUSec: .RestartUSec, StartLimitAction: .StartLimitAction, StartLimitBurst: .StartLimitBurst, StartLimitInterval: .StartLimitInterval, TimeoutStartUSec: .TimeoutStartUSec, TimeoutStopUSec: .TimeoutStopUSec, UnitFilePreset: .UnitFilePreset, UnitFileState: .UnitFileState, WantedBy: .WantedBy, Wants: .Wants}'
+    else
+      systemctl show --no-pager $info_service_name | jq --slurp --raw-input 'split("\n") | map(select(. != "") | split("=") | {"key": .[0], "value": (.[1:] | join("="))}) | from_entries' | jq --arg sli_opt $sli_opt -r '{Names: .Names, Description: .Description, Type: .Type, ActiveState: .ActiveState, LoadState: .LoadState, SubState: .SubState, Result: .Result, ExecMainStartTimestamp: .ExecMainStartTimestamp, MainPID: .MainPID, DropInPaths: .DropInPaths, ExecStart: .ExecStart, ExecStartPre: .ExecStartPre, ExecReload: .ExecReload, ExecStop: .ExecStop, PIDFile: .PIDFile, LimitMEMLOCK: .LimitMEMLOCK, LimitNOFILE: .LimitNOFILE, LimitNPROC: .LimitNPROC, After: .After, Before: .Before, Conflicts: .Conflicts, FailureAction: .FailureAction, FragmentPath: .FragmentPath, NotifyAccess: .NotifyAccess, PrivateNetwork: .PrivateNetwork, PrivateTmp: .PrivateTmp, ProtectHome: .ProtectHome, ProtectSystem: .ProtectSystem, Requires: .Requires, Restart: .Restart, RestartUSec: .RestartUSec, StartLimitAction: .StartLimitAction, StartLimitBurst: .StartLimitBurst, StartLimitIntervalUSec: .StartLimitIntervalUSec, TimeoutStartUSec: .TimeoutStartUSec, TimeoutStopUSec: .TimeoutStopUSec, UnitFilePreset: .UnitFilePreset, UnitFileState: .UnitFileState, WantedBy: .WantedBy, Wants: .Wants}'
+    fi
+  else
+    echo "incorrect syntax"
+    echo "missing servicename"
+    echo "$0 service-info servicename"
+  fi
+}
+
+parse_psrecord() {
+  input_psrecord_file="$1"
+  input_psrecord_sleep="$2"
+  echo
+  echo
+  echo "##################################################################"
+  echo "parsing & converting nginx psrecord data..."
+  echo "waiting for psrecord to close its log..."
+  sleep $input_psrecord_sleep
+  echo "converter json $input_psrecord_file" > "$PSRECORD_LOG_JSON"
+  converter json "$input_psrecord_file" > "$PSRECORD_LOG_JSON"
+}
+
+psrecord_to_csv() {
+  json_file="$1"
+  # Convert JSON to CSV
+  jq -r '.[] | [.time, .cpuload, .realmem, .virtualmem] | @csv' $json_file > "$PSRECORD_LOG_CSV"
+}
+
+psrecord_start() {
+  if [[ -f /usr/local/bin/psrecord && "$PSRECORD_LOCAL" = [yY] ]]; then
+    if [ -f /usr/bin/cminfo ]; then
+      spid=$(cminfo service-info nginx | jq -r '.MainPID')
+    else
+      spid=$(service_info_json nginx | jq -r '.MainPID')
+    fi
+  
+    if [ -n "$spid" ]; then
+      echo "start psrecord ..."
+      sleep "${PSRECORD_DELAY}"
+      echo "psrecord $spid --include-children --interval 0.1 --log ${PSRECORD_LOG} --plot $PSRECORD_PLOT_IMAGE &"
+      psrecord $spid --include-children --interval 0.1 --log ${PSRECORD_LOG} --plot $PSRECORD_PLOT_IMAGE &
+      psrecord_pid=$!
+      echo
+    fi
+  fi
+}
+
+psrecord_end() {
+  if [[ -f /usr/local/bin/psrecord && "$PSRECORD_LOCAL" = [yY] ]]; then
+    if [ -n "$spid" ]; then
+      kill $psrecord_pid
+      wait $psrecord_pid 2>/dev/null
+      parse_psrecord "${PSRECORD_LOG}" "$PSRECORD_DELAY"
+      psrecord_to_csv "$PSRECORD_LOG_JSON"
+      if [ -f psrecord.gnuplot ]; then
+        ./psrecord.gnuplot "$PSRECORD_LOG_CSV" "$TIMESTAMP"
+      fi
+      echo "csv log: $PSRECORD_LOG_CSV"
+      echo "json log: $PSRECORD_LOG_JSON"
+      echo "psrecord chart: psrecord-logs/psrecord-$TIMESTAMP.png"
+      echo "end psrecord"
+    fi
+  fi
 }
 
 parse_output_to_json() {
@@ -165,6 +252,7 @@ while true; do
 done
 
 if [ $BATCH_MODE -eq 1 ]; then
+    psrecord_start
     # In batch mode, we run 4 times, each time increasing the number of connections
     for i in {1..4}; do
         CURRENT_CONNECTIONS=$(($CONNECTIONS * $i / 4))
@@ -188,6 +276,7 @@ if [ $BATCH_MODE -eq 1 ]; then
         printf "%s\n" "$JSON_OUTPUT"
     done
 else
+    psrecord_start
     # If not in batch mode, we run as before
     RAW_LOG="${RAW_LOG_PREFIX}.log"
     if [ -n "$REQ_DURATION" ]; then
@@ -208,3 +297,6 @@ else
     # Display the JSON output
     printf "%s\n" "$JSON_OUTPUT"
 fi
+echo
+echo "h2load benchmark JSON results: $STATS_JSON"
+psrecord_end

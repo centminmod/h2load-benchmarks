@@ -1,0 +1,68 @@
+[
+  {
+    "time": "0.000",
+    "cpuload": "0.000",
+    "realmem": "1039.738",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.107",
+    "cpuload": "152.100",
+    "realmem": "1037.492",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.212",
+    "cpuload": "92.600",
+    "realmem": "1039.648",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.320",
+    "cpuload": "196.500",
+    "realmem": "1040.145",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.427",
+    "cpuload": "47.600",
+    "realmem": "1040.172",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.532",
+    "cpuload": "104.900",
+    "realmem": "1042.602",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.637",
+    "cpuload": "156.400",
+    "realmem": "1043.008",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.745",
+    "cpuload": "85.500",
+    "realmem": "1043.266",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.850",
+    "cpuload": "47.100",
+    "realmem": "1045.270",
+    "virtualmem": "2724.336"
+  },
+  {
+    "time": "0.956",
+    "cpuload": "162.000",
+    "realmem": "1052.086",
+    "virtualmem": "2730.336"
+  },
+  {
+    "time": "1.061",
+    "cpuload": "95.400",
+    "realmem": "1053.367",
+    "virtualmem": "2730.336"
+  }
+]
