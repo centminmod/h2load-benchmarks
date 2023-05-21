@@ -1094,4 +1094,4 @@ in JSON format with `psrecord-logs/psrecord-nginx-20230521114310.json` contents
 
 psrecord charted Nginx CPU and Memory usage
 
-![psrecord charted Nginx CPU/Memory usage](psrecord/psrecord-20230521114310.png "psrecord charted Nginx CPU/Memory usage")
+![psrecord charted Nginx CPU/Memory usage](charts/psrecord/psrecord-20230521114310.png "psrecord charted Nginx CPU/Memory usage")
