@@ -23,6 +23,12 @@ then
     echo "h2load could not be found. Please make sure it is installed and in the PATH."
     exit
 fi
+# Check if h2load built with HTTP/3 support
+if [[ "$(ldd $(which h2load) | grep -o libnghttp3 | sort -u)" = 'libnghttp3' ]]; then
+  HTTP3_OPT=' --npn-list h3'
+else
+  HTTP3_OPT=""
+fi
 
 # Process arguments
 OPTIONS=ht:c:n:D:w:u:b
@@ -78,6 +84,7 @@ parse_output_to_json() {
   /Cipher:/ {cipher=$2}
   /Server Temp Key:/ {tempkey=$4}
   /Application protocol:/ {protocol=$3}
+  /UDP datagram:/ {udp_sent=$3; udp_received=$5}
   END {
     printf "{\
       \"time\": \"%s\", \"req_per_sec\": \"%s\", \"mbs\": \"%s\",\
@@ -89,7 +96,8 @@ parse_output_to_json() {
       \"first_byte_min\": \"%s\", \"first_byte_max\": \"%s\", \"first_byte_mean\": \"%s\", \"first_byte_sd\": \"%s\", \"first_byte_sd_pct\": \"%s\",\
       \"req_s_min\": \"%s\", \"req_s_max\": \"%s\", \"req_s_mean\": \"%s\", \"req_s_sd\": \"%s\", \"req_s_sd_pct\": \"%s\",\
       \"cipher\": \"%s\", \"tempkey\": \"%s\", \"protocol\": \"%s\",\
-      \"threads\": \"%s\", \"connections\": \"%s\", \"duration\": \"%s\", \"warm_up_time\": \"%s\", \"requests\": \"%s\"\
+      \"threads\": \"%s\", \"connections\": \"%s\", \"duration\": \"%s\", \"warm_up_time\": \"%s\", \"requests\": \"%s\",\
+      \"udp_sent\": \"%s\", \"udp_received\": \"%s\"\
     }", time, req_per_sec, mbs,\
     total_req, started_req, done_req, succeeded_req, failed_req, errored_req, timeout_req,\
     status_2xx, status_3xx, status_4xx, status_5xx,\
@@ -98,7 +106,7 @@ parse_output_to_json() {
     conn_min, conn_max, conn_mean, conn_sd, conn_sd_pct,\
     first_byte_min, first_byte_max, first_byte_mean, first_byte_sd, first_byte_sd_pct,\
     req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd, cipher, tempkey, protocol,\
-    threads, connections, duration, warm_up_time, requests
+    threads, connections, duration, warm_up_time, requests, udp_sent, udp_received
   }' $1
 }
 
@@ -162,9 +170,9 @@ if [ $BATCH_MODE -eq 1 ]; then
         CURRENT_CONNECTIONS=$(($CONNECTIONS * $i / 4))
         CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-batch$i.log"
         if [ -n "$REQ_DURATION" ]; then
-            h2load -t$THREADS -c$CURRENT_CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
+            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
         else
-            h2load -t$THREADS -c$CURRENT_CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
+            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
         fi
         # Parse h2load output and convert it to JSON format
         JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
@@ -183,9 +191,9 @@ else
     # If not in batch mode, we run as before
     RAW_LOG="${RAW_LOG_PREFIX}.log"
     if [ -n "$REQ_DURATION" ]; then
-        h2load -t$THREADS -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
     else
-        h2load -t$THREADS -c$CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
     fi
     # Parse h2load output and convert it to JSON format
     JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")

@@ -29,7 +29,64 @@ Options:
   -h, --help          Display this help message
 ```
 
-JSON parsed
+## JSON parsed HTTP/3 Test
+
+When h2load binary is built with HTTP/3 QUIC support, UDP sent/received size metrics are provided too and `protocol` reports `h3` tested.
+
+```
+./h2load-bench.sh -t1 -c10 -n100 -u https://domain.com | jq -r
+{
+  "time": "10.12ms",
+  "req_per_sec": "9877.52",
+  "mbs": "21.17MB/s",
+  "total_req": "100",
+  "started_req": "100",
+  "done_req": "100",
+  "succeeded_req": "100",
+  "failed_req": "0",
+  "errored_req": "0",
+  "timeout_req": "0",
+  "status_2xx": "100",
+  "status_3xx": "0",
+  "status_4xx": "0",
+  "status_5xx": "0",
+  "total_traffic": "219.42KB",
+  "header_traffic": "18.26KB",
+  "data_traffic": "200.49KB",
+  "req_min": "2.35",
+  "req_max": "4.78",
+  "req_mean": "3.91",
+  "req_sd": "807us",
+  "req_sd_pct": "60.00%",
+  "conn_min": "2.65",
+  "conn_max": "5.50",
+  "conn_mean": "4.04",
+  "conn_sd": "955us",
+  "conn_sd_pct": "60.00%",
+  "first_byte_min": "6.62",
+  "first_byte_max": "9.14",
+  "first_byte_mean": "7.75",
+  "first_byte_sd": "930us",
+  "first_byte_sd_pct": "70.00%",
+  "req_s_min": "1050.69",
+  "req_s_max": "1374.58",
+  "req_s_mean": "1216.51",
+  "req_s_sd": "113.10",
+  "req_s_sd_pct": "113.10",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "tempkey": "X25519",
+  "protocol": "h3",
+  "threads": "1",
+  "connections": "10",
+  "duration": "null",
+  "warm_up_time": "null",
+  "requests": "100",
+  "udp_sent": "52",
+  "udp_received": "251"
+}
+```
+
+## JSON parsed HTTP/2 Test
 
 ```
 ./h2load-bench.sh -t 1 -c 10 -n 100 -u https://domain.com | jq
