@@ -25,6 +25,7 @@ REQ_DURATION=""
 WARM_UP_TIME=""
 URI=""
 BATCH_MODE=0
+MAXCONCURRENT_STREAMS='100'
 
 if ! command -v h2load &> /dev/null
 then
@@ -258,9 +259,9 @@ if [ $BATCH_MODE -eq 1 ]; then
         CURRENT_CONNECTIONS=$(($CONNECTIONS * $i / 4))
         CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-batch$i.log"
         if [ -n "$REQ_DURATION" ]; then
-            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
+            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
         else
-            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
+            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
         fi
         # Parse h2load output and convert it to JSON format
         JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
@@ -280,9 +281,9 @@ else
     # If not in batch mode, we run as before
     RAW_LOG="${RAW_LOG_PREFIX}.log"
     if [ -n "$REQ_DURATION" ]; then
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
     else
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m32 -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
     fi
     # Parse h2load output and convert it to JSON format
     JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
