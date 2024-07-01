@@ -26,6 +26,7 @@ WARM_UP_TIME=""
 URI=""
 BATCH_MODE=0
 MAXCONCURRENT_STREAMS='100'
+BENCHMARK_RUNS=11
 
 if ! command -v h2load &> /dev/null
 then
@@ -252,52 +253,120 @@ while true; do
     esac
 done
 
+run_benchmark() {
+    local output_file=$1
+    if [ -n "$REQ_DURATION" ]; then
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$output_file"
+    else
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$output_file"
+    fi
+}
+
+average_results() {
+    local json_files=("$@")
+    local avg_json="{}"
+    
+    # Fields that need averaging and additional statistics
+    local stat_fields=(time req_per_sec mbs req_min req_max req_mean req_sd req_sd_pct conn_min conn_max conn_mean conn_sd conn_sd_pct first_byte_min first_byte_max first_byte_mean first_byte_sd first_byte_sd_pct req_s_min req_s_max req_s_mean req_s_sd req_s_sd_pct)
+    
+    # Other fields that need averaging
+    local avg_fields=(total_req started_req done_req succeeded_req failed_req errored_req timeout_req status_2xx status_3xx status_4xx status_5xx total_traffic header_traffic data_traffic threads connections requests udp_sent udp_received)
+    
+    # Fields that need reporting (last value)
+    local report_fields=(cipher tempkey protocol duration warm_up_time)
+    
+    format_number() {
+        printf "%.3f" "$1"
+    }
+
+    for field in "${stat_fields[@]}" "${avg_fields[@]}"; do
+        local values=()
+        local sum=0
+        local count=0
+        local unit=""
+        for file in "${json_files[@]}"; do
+            value=$(jq -r ".$field" "$file" | sed 's/[^0-9.]//g')
+            if [[ -z "$value" || "$value" == "null" ]]; then
+                continue
+            fi
+            if [[ "$field" =~ ^(req_|conn_|first_byte_) ]]; then
+                original=$(jq -r ".$field" "$file")
+                if [[ "$original" =~ us$ ]]; then
+                    value=$(echo "$value / 1000000" | bc -l)
+                elif [[ "$original" =~ ms$ ]]; then
+                    value=$(echo "$value / 1000" | bc -l)
+                fi
+                unit="s"
+            elif [[ "$field" =~ _traffic$ ]]; then
+                unit="KB"
+            elif [[ "$field" == "mbs" ]]; then
+                unit="MB/s"
+            fi
+            values+=($value)
+            sum=$(echo "$sum + $value" | bc -l)
+            count=$((count + 1))
+        done
+        if [ $count -ne 0 ]; then
+            avg=$(format_number $(echo "$sum / $count" | bc -l))
+            if [[ " ${stat_fields[@]} " =~ " ${field} " ]]; then
+                IFS=$'\n' sorted=($(sort -n <<<"${values[*]}"))
+                unset IFS
+                min=$(format_number ${sorted[0]})
+                max=$(format_number ${sorted[-1]})
+                index=$(echo "($count * 0.95) - 1" | bc)
+                pc95=$(format_number ${sorted[${index%.*}]})
+                avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg min "$min" --arg max "$max" --arg avg "$avg" --arg pc95 "$pc95" --arg unit "$unit" \
+                    '. + {($field): ($avg + $unit), ($field + "_min"): ($min + $unit), ($field + "_max"): ($max + $unit), ($field + "_95pc"): ($pc95 + $unit)}')
+            else
+                if [[ -n "$unit" ]]; then
+                    avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg avg "$avg" --arg unit "$unit" '. + {($field): ($avg + $unit)}')
+                else
+                    avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg avg "$avg" '. + {($field): $avg}')
+                fi
+            fi
+        fi
+    done
+    
+    for field in "${report_fields[@]}"; do
+        value=$(jq -r ".$field" "${json_files[-1]}")
+        avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg value "$value" '. + {($field): $value}')
+    done
+    
+    echo "$avg_json"
+}
+
 if [ $BATCH_MODE -eq 1 ]; then
     psrecord_start
-    # In batch mode, we run 4 times, each time increasing the number of connections
     for i in {1..4}; do
         CURRENT_CONNECTIONS=$(($CONNECTIONS * $i / 4))
-        CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-batch$i.log"
-        if [ -n "$REQ_DURATION" ]; then
-            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
-        else
-            h2load -t$THREADS${HTTP3_OPT} -c$CURRENT_CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$CURRENT_RAW_LOG"
-        fi
-        # Parse h2load output and convert it to JSON format
-        JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
-        # Append JSON output to a file
-        printf "%s\n" "$JSON_OUTPUT" >> "$STATS_JSON"
-        # CSV log for request avg latency
-        jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
-        \cp -af "$STATS_CSV" output.csv
-        # CSV log 2 for request max latency
-        jq -r '.connections, .req_per_sec, .req_max' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_MAX_CSV"
-        \cp -af "$STATS_MAX_CSV" output2.csv
-        # Display the JSON output
-        printf "%s\n" "$JSON_OUTPUT"
+        json_outputs=()
+        for run in $(seq 1 $BENCHMARK_RUNS); do
+            CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-batch${i}-run${run}.log"
+            run_benchmark "$CURRENT_RAW_LOG"
+            JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
+            echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-batch${i}-run${run}.json"
+            json_outputs+=("${STATS_JSON%.json}-batch${i}-run${run}.json")
+        done
+        AVG_JSON_OUTPUT=$(average_results "${json_outputs[@]}")
+        echo "$AVG_JSON_OUTPUT" > "${STATS_JSON%.json}-batch${i}-avg.json"
+        jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_CSV"
+        jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_MAX_CSV"
+        echo "$AVG_JSON_OUTPUT"
     done
 else
     psrecord_start
-    # If not in batch mode, we run as before
-    RAW_LOG="${RAW_LOG_PREFIX}.log"
-    if [ -n "$REQ_DURATION" ]; then
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
-    else
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$RAW_LOG"
-    fi
-    # Parse h2load output and convert it to JSON format
-    JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
-    # Save JSON output to a file
-    printf "%s\n" "$JSON_OUTPUT" > "$STATS_JSON"
-    # CSV log for request avg latency
-    jq -r '.connections, .req_per_sec, .req_mean' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_CSV"
-    \cp -af "$STATS_CSV" output.csv
-    # CSV log 2 for request max latency
-    jq -r '.connections, .req_per_sec, .req_max' < "$STATS_JSON" | awk 'ORS=NR%3?",":"\n"' > "$STATS_MAX_CSV"
-    \cp -af "$STATS_MAX_CSV" output2.csv
-    # Display the JSON output
-    printf "%s\n" "$JSON_OUTPUT"
+    json_outputs=()
+    for run in $(seq 1 $BENCHMARK_RUNS); do
+        RAW_LOG="${RAW_LOG_PREFIX}-run${run}.log"
+        run_benchmark "$RAW_LOG"
+        JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
+        echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-run${run}.json"
+        json_outputs+=("${STATS_JSON%.json}-run${run}.json")
+    done
+    AVG_JSON_OUTPUT=$(average_results "${json_outputs[@]}")
+    echo "$AVG_JSON_OUTPUT" > "$STATS_JSON"
+    jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_CSV"
+    jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_MAX_CSV"
+    echo "$AVG_JSON_OUTPUT"
 fi
-echo
-echo "h2load benchmark JSON results: $STATS_JSON"
 psrecord_end
