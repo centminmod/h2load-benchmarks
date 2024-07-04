@@ -27,6 +27,7 @@ URI=""
 BATCH_MODE=0
 MAXCONCURRENT_STREAMS='100'
 BENCHMARK_RUNS=11
+COMPRESS="gzip,br"
 
 if ! command -v h2load &> /dev/null
 then
@@ -41,11 +42,11 @@ else
 fi
 
 # Process arguments
-OPTIONS=ht:c:n:D:w:u:b
-LONGOPTS=usage,threads:,connections:,requests:,duration:,warm-up:,uri:,batch
+OPTIONS=ht:c:n:D:w:u:bC:
+LONGOPTS=usage,threads:,connections:,requests:,duration:,warm-up:,uri:,batch,compress:
 
 usage() {
-    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch]"
+    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch] [-C compress]"
     echo
     echo "Options:"
     echo "  -t, --threads       Number of threads"
@@ -55,6 +56,7 @@ usage() {
     echo "  -w, --warm-up       Warm-up time before the benchmark"
     echo "  -u, --uri           URI to request"
     echo "  -b, --batch         Enable batch mode"
+    echo "  -C, --compress      Compression option (gzip, br, zstd, none)"
     echo "  -h, --help          Display this help message"
     exit 0
 }
@@ -243,6 +245,10 @@ while true; do
             BATCH_MODE=1
             shift
             ;;
+        -C|--compress)
+            COMPRESS="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             ;;
@@ -255,10 +261,30 @@ done
 
 run_benchmark() {
     local output_file=$1
+    local compress_header=""
+    
+    case "$COMPRESS" in
+        gzip)
+            compress_header="Accept-Encoding: gzip"
+            ;;
+        br)
+            compress_header="Accept-Encoding: br"
+            ;;
+        zstd)
+            compress_header="Accept-Encoding: zstd"
+            ;;
+        none)
+            compress_header="Accept-Encoding: identity"
+            ;;
+        *)
+            compress_header="Accept-Encoding: $COMPRESS"
+            ;;
+    esac
+    
     if [ -n "$REQ_DURATION" ]; then
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$output_file"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H "$compress_header" $URI > "$output_file"
     else
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H 'Accept-Encoding: gzip,br' $URI > "$output_file"
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H "$compress_header" $URI > "$output_file"
     fi
 }
 

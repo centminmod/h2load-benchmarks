@@ -30,8 +30,8 @@ Includes a [Batch Mode](#batch-mode) with charting support. Example charting for
 * [psrecord](#psrecord)
 
 ```
-./h2load-bench.sh 
-Usage: ./h2load-bench.sh [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch]
+./h2load-bench.sh
+Usage: ./h2load-bench.sh [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch] [-C compress]
 
 Options:
   -t, --threads       Number of threads
@@ -41,6 +41,7 @@ Options:
   -w, --warm-up       Warm-up time before the benchmark
   -u, --uri           URI to request
   -b, --batch         Enable batch mode
+  -C, --compress      Compression option (gzip, br, zstd, none)
   -h, --help          Display this help message
 ```
 
