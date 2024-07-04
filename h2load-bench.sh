@@ -11,7 +11,7 @@ PSRECORD_LOG_CSV="psrecord-logs/psrecord-nginx-$TIMESTAMP.csv"
 PSRECORD_PLOT_IMAGE="psrecord-logs/psrecord-nginx-$TIMESTAMP.png"
 
 # local h2load test psrecord for Nginx resource usage
-PSRECORD_LOCAL='y'
+PSRECORD_LOCAL='n'
 PSRECORD_DELAY='15'
 
 # Ensure the h2load-logs directory exists
