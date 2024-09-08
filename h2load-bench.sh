@@ -167,11 +167,11 @@ parse_output_to_json() {
 
   function format_time_with_unit(value) {
       if (value >= 1) {
-          return sprintf("%.3fs", value);
+          return sprintf("%.4fs", value);
       } else if (value >= 0.001) {
-          return sprintf("%.3fms", value * 1000);
+          return sprintf("%.4fms", value * 1000);
       } else {
-          return sprintf("%.3fus", value * 1000000);
+          return sprintf("%.4fus", value * 1000000);
       }
   }
 
@@ -312,7 +312,7 @@ average_results() {
     local report_fields=(cipher tempkey protocol duration warm_up_time)
     
     format_number() {
-        printf "%.3f" "$1"
+        printf "%.4f" "$1"
     }
 
     for field in "${stat_fields[@]}" "${avg_fields[@]}"; do
