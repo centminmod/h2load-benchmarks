@@ -155,22 +155,33 @@ parse_output_to_json() {
 
   awk -v threads="$threads" -v connections="$connections" -v duration="$duration" -v warm_up_time="$warm_up_time" -v requests="$requests" '
   function convert_time(str) {
-    if (str ~ /^[0-9.]+s$/) {
-      return str * 1000;
-    } else if (str ~ /^[0-9.]+us$/) {
-      return str / 1000;
-    } else if (str ~ /^[0-9.]+ms$/) {
-      return substr(str, 1, length(str)-2);
-    }
+      if (str ~ /^[0-9.]+s$/) {
+          return substr(str, 1, length(str)-1);
+      } else if (str ~ /^[0-9.]+us$/) {
+          return substr(str, 1, length(str)-2) / 1000000;
+      } else if (str ~ /^[0-9.]+ms$/) {
+          return substr(str, 1, length(str)-2) / 1000;
+      }
+      return str;
+  }
+
+  function format_time_with_unit(value) {
+      if (value >= 1) {
+          return sprintf("%.3fs", value);
+      } else if (value >= 0.001) {
+          return sprintf("%.3fms", value * 1000);
+      } else {
+          return sprintf("%.3fus", value * 1000000);
+      }
   }
 
   /finished in/ {time=$3; sub(/,$/, "", time); req_per_sec=$4; mbs=$6}
   /requests:/ {total_req=$2; started_req=$4; done_req=$6; succeeded_req=$8; failed_req=$10; errored_req=$12; timeout_req=$14}
   /status codes:/ {status_2xx=$3; status_3xx=$5; status_4xx=$7; status_5xx=$9}
   /traffic:/ {total_traffic=$2; header_traffic=$5; data_traffic=$11; data_traffic_savings=$10}
-  /time for request:/ {req_min=convert_time($4); req_max=convert_time($5); req_mean=convert_time($6); req_sd=$7; req_sd_pct=$8}
-  /time for connect:/ {conn_min=convert_time($4); conn_max=convert_time($5); conn_mean=convert_time($6); conn_sd=$7; conn_sd_pct=$8}
-  /time to 1st byte:/ {first_byte_min=convert_time($5); first_byte_max=convert_time($6); first_byte_mean=convert_time($7); first_byte_sd=$8; first_byte_sd_pct=$9}
+  /time for request:/ {req_min=convert_time($4); req_max=convert_time($5); req_mean=convert_time($6); req_sd=convert_time($7); req_sd_pct=$8}
+  /time for connect:/ {conn_min=convert_time($4); conn_max=convert_time($5); conn_mean=convert_time($6); conn_sd=convert_time($7); conn_sd_pct=$8}
+  /time to 1st byte:/ {first_byte_min=convert_time($5); first_byte_max=convert_time($6); first_byte_mean=convert_time($7); first_byte_sd=convert_time($8); first_byte_sd_pct=$9}
   /req\/s/ {req_s_min=$3; req_s_max=$4; req_s_mean=$5; req_s_sd=$6; req_s_sd_pct=$7}
   /Cipher:/ {cipher=$2}
   /Server Temp Key:/ {tempkey=$4}
@@ -189,18 +200,17 @@ parse_output_to_json() {
       \"cipher\": \"%s\", \"tempkey\": \"%s\", \"protocol\": \"%s\",\
       \"threads\": \"%s\", \"connections\": \"%s\", \"duration\": \"%s\", \"warm_up_time\": \"%s\", \"requests\": \"%s\",\
       \"udp_sent\": \"%s\", \"udp_received\": \"%s\"\
-    }", time, req_per_sec, mbs,\
+    }", format_time_with_unit(time), req_per_sec, mbs,\
     total_req, started_req, done_req, succeeded_req, failed_req, errored_req, timeout_req,\
     status_2xx, status_3xx, status_4xx, status_5xx,\
     total_traffic, header_traffic, data_traffic,\
-    req_min, req_max, req_mean, req_sd, req_sd_pct,\
-    conn_min, conn_max, conn_mean, conn_sd, conn_sd_pct,\
-    first_byte_min, first_byte_max, first_byte_mean, first_byte_sd, first_byte_sd_pct,\
-    req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd, cipher, tempkey, protocol,\
+    format_time_with_unit(req_min), format_time_with_unit(req_max), format_time_with_unit(req_mean), format_time_with_unit(req_sd), req_sd_pct,\
+    format_time_with_unit(conn_min), format_time_with_unit(conn_max), format_time_with_unit(conn_mean), format_time_with_unit(conn_sd), conn_sd_pct,\
+    format_time_with_unit(first_byte_min), format_time_with_unit(first_byte_max), format_time_with_unit(first_byte_mean), format_time_with_unit(first_byte_sd), first_byte_sd_pct,\
+    req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd_pct, cipher, tempkey, protocol,\
     threads, connections, duration, warm_up_time, requests, udp_sent, udp_received
-  }' $1
+  }' $log_file
 }
-
 
 if [ $# -eq 0 ]; then
     usage
