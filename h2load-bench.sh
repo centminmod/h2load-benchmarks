@@ -310,6 +310,9 @@ average_results() {
     
     # Fields that need reporting (last value)
     local report_fields=(cipher tempkey protocol duration warm_up_time)
+
+    # Fields that should not have units added
+    local no_unit_fields=(req_per_sec req_s_min req_s_max req_s_mean req_s_sd req_s_sd_pct)
     
     format_number() {
         printf "%.4f" "$1"
@@ -325,7 +328,7 @@ average_results() {
             if [[ -z "$value" || "$value" == "null" ]]; then
                 continue
             fi
-            if [[ "$field" =~ ^(req_|conn_|first_byte_) ]]; then
+            if [[ "$field" =~ ^(req_|conn_|first_byte_) && ! " ${no_unit_fields[@]} " =~ " ${field} " ]]; then
                 original=$(jq -r ".$field" "$file")
                 if [[ "$original" =~ us$ ]]; then
                     value=$(echo "$value / 1000000" | bc -l)
@@ -351,10 +354,15 @@ average_results() {
                 max=$(format_number ${sorted[-1]})
                 index=$(echo "($count * 0.95) - 1" | bc)
                 pc95=$(format_number ${sorted[${index%.*}]})
-                avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg min "$min" --arg max "$max" --arg avg "$avg" --arg pc95 "$pc95" --arg unit "$unit" \
-                    '. + {($field): ($avg + $unit), ($field + "_min"): ($min + $unit), ($field + "_max"): ($max + $unit), ($field + "_95pc"): ($pc95 + $unit)}')
+                if [[ " ${no_unit_fields[@]} " =~ " ${field} " ]]; then
+                    avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg min "$min" --arg max "$max" --arg avg "$avg" --arg pc95 "$pc95" \
+                        '. + {($field): $avg, ($field + "_min"): $min, ($field + "_max"): $max, ($field + "_95pc"): $pc95}')
+                else
+                    avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg min "$min" --arg max "$max" --arg avg "$avg" --arg pc95 "$pc95" --arg unit "$unit" \
+                        '. + {($field): ($avg + $unit), ($field + "_min"): ($min + $unit), ($field + "_max"): ($max + $unit), ($field + "_95pc"): ($pc95 + $unit)}')
+                fi
             else
-                if [[ -n "$unit" ]]; then
+                if [[ -n "$unit" && ! " ${no_unit_fields[@]} " =~ " ${field} " ]]; then
                     avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg avg "$avg" --arg unit "$unit" '. + {($field): ($avg + $unit)}')
                 else
                     avg_json=$(echo "$avg_json" | jq --arg field "$field" --arg avg "$avg" '. + {($field): $avg}')
