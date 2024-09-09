@@ -28,6 +28,7 @@ BATCH_MODE=0
 MAXCONCURRENT_STREAMS='100'
 BENCHMARK_RUNS=11
 COMPRESS="gzip,br"
+FORMAT="json"
 
 if ! command -v h2load &> /dev/null
 then
@@ -42,11 +43,11 @@ else
 fi
 
 # Process arguments
-OPTIONS=ht:c:n:D:w:u:bC:
-LONGOPTS=usage,threads:,connections:,requests:,duration:,warm-up:,uri:,batch,compress:
+OPTIONS=ht:c:n:D:w:u:bC:f:
+LONGOPTS=usage,threads:,connections:,requests:,duration:,warm-up:,uri:,batch,compress:,format:
 
 usage() {
-    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch] [-C compress]"
+    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch] [-C compress] [-f format]"
     echo
     echo "Options:"
     echo "  -t, --threads       Number of threads"
@@ -57,6 +58,7 @@ usage() {
     echo "  -u, --uri           URI to request"
     echo "  -b, --batch         Enable batch mode"
     echo "  -C, --compress      Compression option (gzip, br, zstd, none)"
+    echo "  -f, --format        Output format (json or markdown)"
     echo "  -h, --help          Display this help message"
     exit 0
 }
@@ -259,6 +261,10 @@ while true; do
             COMPRESS="$2"
             shift 2
             ;;
+        -f|--format)
+            FORMAT="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             ;;
@@ -379,6 +385,20 @@ average_results() {
     echo "$avg_json"
 }
 
+json_to_markdown() {
+    local json="$1"
+    local markdown="| Field | Value |\n|-------|-------|\n"
+    
+    while IFS="=" read -r key value; do
+        # Remove quotes from the value
+        value="${value%\"}"
+        value="${value#\"}"
+        markdown+="| $key | $value |\n"
+    done < <(jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' <<< "$json")
+    
+    echo -e "$markdown"
+}
+
 if [ $BATCH_MODE -eq 1 ]; then
     psrecord_start
     for i in {1..4}; do
@@ -395,7 +415,11 @@ if [ $BATCH_MODE -eq 1 ]; then
         echo "$AVG_JSON_OUTPUT" > "${STATS_JSON%.json}-batch${i}-avg.json"
         jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_CSV"
         jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_MAX_CSV"
-        echo "$AVG_JSON_OUTPUT"
+        if [ "$FORMAT" = "markdown" ]; then
+            json_to_markdown "$AVG_JSON_OUTPUT"
+        else
+            echo "$AVG_JSON_OUTPUT"
+        fi
     done
 else
     psrecord_start
@@ -411,6 +435,10 @@ else
     echo "$AVG_JSON_OUTPUT" > "$STATS_JSON"
     jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_CSV"
     jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_MAX_CSV"
-    echo "$AVG_JSON_OUTPUT"
+    if [ "$FORMAT" = "markdown" ]; then
+        json_to_markdown "$AVG_JSON_OUTPUT"
+    else
+        echo "$AVG_JSON_OUTPUT"
+    fi
 fi
 psrecord_end
