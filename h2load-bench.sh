@@ -300,37 +300,54 @@ average_results() {
 json_to_markdown() {
     local json_array="$1"
     local domain_count=$(echo "$json_array" | jq length)
+    local is_batch_mode=$(echo "$json_array" | jq 'if .[0] | type == "array" then true else false end')
     
-    # Create the header based on the number of domains
-    local header="| Field"
-    for ((i=0; i<$domain_count; i++)); do
-        header+=" | ${URI_ARRAY[$i]}"
-    done
-    header+=" |\n|-------"
-    for ((i=0; i<$domain_count; i++)); do
-        header+="|-------"
-    done
-    header+="|\n"
-    
-    local markdown="$header"
-    
-    # Get all unique keys from all JSON objects
-    local keys
-    if [ "$domain_count" -eq 1 ]; then
-        keys=$(echo "$json_array" | jq -r '.[0] | keys[]' | sort)
-    else
-        keys=$(echo "$json_array" | jq -r '.[0] * .[1] | keys[]' | sort)
-    fi
+    if [ "$is_batch_mode" = "true" ]; then
+        # Batch mode
+        local markdown="| Field | 25% | 50% | 75% | 100% |\n|-------|-----|-----|-----|------|\n"
+        local batch_count=$(echo "$json_array" | jq '.[0] | length')
+        local keys=$(echo "$json_array" | jq -r '.[0][0] | keys[]' | sort)
 
-    for key in $keys; do
-        local row="| $key"
-        for ((i=0; i<$domain_count; i++)); do
-            local value=$(echo "$json_array" | jq -r ".[$i][\"$key\"] // \"N/A\"")
-            row+=" | $value"
+        for key in $keys; do
+            local row="| $key"
+            for ((i=0; i<$batch_count; i++)); do
+                local value=$(echo "$json_array" | jq -r ".[0][$i][\"$key\"] // \"N/A\"")
+                row+=" | $value"
+            done
+            row+=" |\n"
+            markdown+="$row"
         done
-        row+=" |\n"
-        markdown+="$row"
-    done
+    else
+        # Non-batch mode
+        local header="| Field"
+        for ((i=0; i<$domain_count; i++)); do
+            header+=" | ${URI_ARRAY[$i]}"
+        done
+        header+=" |\n|-------"
+        for ((i=0; i<$domain_count; i++)); do
+            header+="|-------"
+        done
+        header+="|\n"
+        
+        local markdown="$header"
+        
+        local keys
+        if [ "$domain_count" -eq 1 ]; then
+            keys=$(echo "$json_array" | jq -r '.[0] | keys[]' | sort)
+        else
+            keys=$(echo "$json_array" | jq -r '.[0] * .[1] | keys[]' | sort)
+        fi
+
+        for key in $keys; do
+            local row="| $key"
+            for ((i=0; i<$domain_count; i++)); do
+                local value=$(echo "$json_array" | jq -r ".[$i][\"$key\"] // \"N/A\"")
+                row+=" | $value"
+            done
+            row+=" |\n"
+            markdown+="$row"
+        done
+    fi
     
     echo -e "$markdown"
 }
