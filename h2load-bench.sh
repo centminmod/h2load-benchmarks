@@ -298,15 +298,39 @@ average_results() {
 }
 
 json_to_markdown() {
-    local json="$1"
-    local markdown="| Field | Value |\n|-------|-------|\n"
+    local json_array="$1"
+    local domain_count=$(echo "$json_array" | jq length)
     
-    while IFS="=" read -r key value; do
-        # Remove quotes from the value
-        value="${value%\"}"
-        value="${value#\"}"
-        markdown+="| $key | $value |\n"
-    done < <(jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' <<< "$json")
+    # Create the header based on the number of domains
+    local header="| Field"
+    for ((i=0; i<$domain_count; i++)); do
+        header+=" | ${URI_ARRAY[$i]}"
+    done
+    header+=" |\n|-------"
+    for ((i=0; i<$domain_count; i++)); do
+        header+="|-------"
+    done
+    header+="|\n"
+    
+    local markdown="$header"
+    
+    # Get all unique keys from all JSON objects
+    local keys
+    if [ "$domain_count" -eq 1 ]; then
+        keys=$(echo "$json_array" | jq -r '.[0] | keys[]' | sort)
+    else
+        keys=$(echo "$json_array" | jq -r '.[0] * .[1] | keys[]' | sort)
+    fi
+
+    for key in $keys; do
+        local row="| $key"
+        for ((i=0; i<$domain_count; i++)); do
+            local value=$(echo "$json_array" | jq -r ".[$i][\"$key\"] // \"N/A\"")
+            row+=" | $value"
+        done
+        row+=" |\n"
+        markdown+="$row"
+    done
     
     echo -e "$markdown"
 }
@@ -455,7 +479,7 @@ FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT}]"
 echo "$FINAL_JSON_OUTPUT" > "$STATS_JSON"
 
 if [ "$FORMAT" = "markdown" ]; then
-    echo "$FINAL_JSON_OUTPUT" | jq -r '.[] | "## Results for \(.uri)\n\n\(. | to_entries | map("### \(.key)\n\(.value)\n") | .[])"'
+    json_to_markdown "$FINAL_JSON_OUTPUT"
 else
     echo "$FINAL_JSON_OUTPUT"
 fi
