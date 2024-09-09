@@ -23,7 +23,7 @@ CONNECTIONS=""
 REQUESTS=""
 REQ_DURATION=""
 WARM_UP_TIME=""
-URI=""
+URIS=""
 BATCH_MODE=0
 MAXCONCURRENT_STREAMS='100'
 BENCHMARK_RUNS=11
@@ -47,7 +47,7 @@ OPTIONS=ht:c:n:D:w:u:bC:f:
 LONGOPTS=usage,threads:,connections:,requests:,duration:,warm-up:,uri:,batch,compress:,format:
 
 usage() {
-    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri] [-b batch] [-C compress] [-f format]"
+    echo "Usage: $0 [-t threads] [-c connections] [-n requests] [-D duration] [-w warm-up] [-u uri1,uri2,...] [-b batch] [-C compress] [-f format]"
     echo
     echo "Options:"
     echo "  -t, --threads       Number of threads"
@@ -55,7 +55,7 @@ usage() {
     echo "  -n, --requests      Number of requests"
     echo "  -D, --duration      Duration of the benchmark"
     echo "  -w, --warm-up       Warm-up time before the benchmark"
-    echo "  -u, --uri           URI to request"
+    echo "  -u, --uri           Comma-separated list of URIs to request"
     echo "  -b, --batch         Enable batch mode"
     echo "  -C, --compress      Compression option (gzip, br, zstd, none)"
     echo "  -f, --format        Output format (json or markdown)"
@@ -149,13 +149,14 @@ parse_output_to_json() {
   local duration="$4"
   local warm_up_time="$5"
   local requests="$6"
+  local uri="$7"
 
   # If duration or requests is not provided, represent as null in the JSON output
   [ -z "$duration" ] && duration="null"
   [ -z "$requests" ] && requests="null"
   [ -z "$warm_up_time" ] && warm_up_time="null"
 
-  awk -v threads="$threads" -v connections="$connections" -v duration="$duration" -v warm_up_time="$warm_up_time" -v requests="$requests" '
+  awk -v threads="$threads" -v connections="$connections" -v duration="$duration" -v warm_up_time="$warm_up_time" -v requests="$requests" -v uri="$uri" '
   function convert_time(str) {
       if (str ~ /^[0-9.]+s$/) {
           return substr(str, 1, length(str)-1);
@@ -191,6 +192,7 @@ parse_output_to_json() {
   /UDP datagram:/ {udp_sent=$3; udp_received=$5}
   END {
     printf "{\
+      \"uri\": \"%s\",\
       \"time\": \"%s\", \"req_per_sec\": \"%s\", \"mbs\": \"%s\",\
       \"total_req\": \"%s\", \"started_req\": \"%s\", \"done_req\": \"%s\", \"succeeded_req\": \"%s\", \"failed_req\": \"%s\", \"errored_req\": \"%s\", \"timeout_req\": \"%s\",\
       \"status_2xx\": \"%s\", \"status_3xx\": \"%s\", \"status_4xx\": \"%s\", \"status_5xx\": \"%s\",\
@@ -202,7 +204,7 @@ parse_output_to_json() {
       \"cipher\": \"%s\", \"tempkey\": \"%s\", \"protocol\": \"%s\",\
       \"threads\": \"%s\", \"connections\": \"%s\", \"duration\": \"%s\", \"warm_up_time\": \"%s\", \"requests\": \"%s\",\
       \"udp_sent\": \"%s\", \"udp_received\": \"%s\"\
-    }", format_time_with_unit(time), req_per_sec, mbs,\
+    }", uri, format_time_with_unit(time), req_per_sec, mbs,\
     total_req, started_req, done_req, succeeded_req, failed_req, errored_req, timeout_req,\
     status_2xx, status_3xx, status_4xx, status_5xx,\
     total_traffic, header_traffic, data_traffic,\
@@ -212,96 +214,6 @@ parse_output_to_json() {
     req_s_min, req_s_max, req_s_mean, req_s_sd, req_s_sd_pct, cipher, tempkey, protocol,\
     threads, connections, duration, warm_up_time, requests, udp_sent, udp_received
   }' $log_file
-}
-
-if [ $# -eq 0 ]; then
-    usage
-    exit 0
-fi
-
-PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
-
-if [[ $? -ne 0 ]]; then
-    exit 2
-fi
-
-eval set -- "$PARSED"
-
-while true; do
-    case "$1" in
-        -t|--threads)
-            THREADS="$2"
-            shift 2
-            ;;
-        -c|--connections)
-            CONNECTIONS="$2"
-            shift 2
-            ;;
-        -n|--requests)
-            REQUESTS="$2"
-            shift 2
-            ;;
-        -D|--duration)
-            REQ_DURATION="$2"
-            shift 2
-            ;;
-        -w|--warm-up)
-            WARM_UP_TIME="$2"
-            shift 2
-            ;;
-        -u|--uri)
-            URI="$2"
-            shift 2
-            ;;
-        -b|--batch)
-            BATCH_MODE=1
-            shift
-            ;;
-        -C|--compress)
-            COMPRESS="$2"
-            shift 2
-            ;;
-        -f|--format)
-            FORMAT="$2"
-            shift 2
-            ;;
-        -h|--help)
-            usage
-            ;;
-        --)
-            shift
-            break
-            ;;
-    esac
-done
-
-run_benchmark() {
-    local output_file=$1
-    local compress_header=""
-    
-    case "$COMPRESS" in
-        gzip)
-            compress_header="Accept-Encoding: gzip"
-            ;;
-        br)
-            compress_header="Accept-Encoding: br"
-            ;;
-        zstd)
-            compress_header="Accept-Encoding: zstd"
-            ;;
-        none)
-            compress_header="Accept-Encoding: identity"
-            ;;
-        *)
-            compress_header="Accept-Encoding: $COMPRESS"
-            ;;
-    esac
-    
-    if [ -n "$REQ_DURATION" ]; then
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H "$compress_header" $URI > "$output_file"
-    else
-        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H "$compress_header" $URI > "$output_file"
-    fi
 }
 
 average_results() {
@@ -315,7 +227,7 @@ average_results() {
     local avg_fields=(total_req started_req done_req succeeded_req failed_req errored_req timeout_req status_2xx status_3xx status_4xx status_5xx total_traffic header_traffic data_traffic threads connections requests udp_sent udp_received)
     
     # Fields that need reporting (last value)
-    local report_fields=(cipher tempkey protocol duration warm_up_time)
+    local report_fields=(cipher tempkey protocol duration warm_up_time uri)
 
     # Fields that should not have units added
     local no_unit_fields=(req_per_sec req_s_min req_s_max req_s_mean req_s_sd req_s_sd_pct)
@@ -399,46 +311,153 @@ json_to_markdown() {
     echo -e "$markdown"
 }
 
-if [ $BATCH_MODE -eq 1 ]; then
-    psrecord_start
-    for i in {1..4}; do
-        CURRENT_CONNECTIONS=$(($CONNECTIONS * $i / 4))
+run_benchmark() {
+    local output_file=$1
+    local uri=$2
+    local compress_header=""
+    
+    case "$COMPRESS" in
+        gzip)
+            compress_header="Accept-Encoding: gzip"
+            ;;
+        br)
+            compress_header="Accept-Encoding: br"
+            ;;
+        zstd)
+            compress_header="Accept-Encoding: zstd"
+            ;;
+        none)
+            compress_header="Accept-Encoding: identity"
+            ;;
+        *)
+            compress_header="Accept-Encoding: $COMPRESS"
+            ;;
+    esac
+    
+    if [ -n "$REQ_DURATION" ]; then
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -D$REQ_DURATION --warm-up-time=$WARM_UP_TIME -m$MAXCONCURRENT_STREAMS -H "$compress_header" $uri > "$output_file"
+    else
+        h2load -t$THREADS${HTTP3_OPT} -c$CONNECTIONS -n$REQUESTS -m$MAXCONCURRENT_STREAMS -H "$compress_header" $uri > "$output_file"
+    fi
+}
+
+if [ $# -eq 0 ]; then
+    usage
+    exit 0
+fi
+
+PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
+
+if [[ $? -ne 0 ]]; then
+    exit 2
+fi
+
+eval set -- "$PARSED"
+
+while true; do
+    case "$1" in
+        -t|--threads)
+            THREADS="$2"
+            shift 2
+            ;;
+        -c|--connections)
+            CONNECTIONS="$2"
+            shift 2
+            ;;
+        -n|--requests)
+            REQUESTS="$2"
+            shift 2
+            ;;
+        -D|--duration)
+            REQ_DURATION="$2"
+            shift 2
+            ;;
+        -w|--warm-up)
+            WARM_UP_TIME="$2"
+            shift 2
+            ;;
+        -u|--uri)
+            URIS="$2"
+            shift 2
+            ;;
+        -b|--batch)
+            BATCH_MODE=1
+            shift
+            ;;
+        -C|--compress)
+            COMPRESS="$2"
+            shift 2
+            ;;
+        -f|--format)
+            FORMAT="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        --)
+            shift
+            break
+            ;;
+    esac
+done
+
+# Main execution
+psrecord_start
+
+IFS=',' read -ra URI_ARRAY <<< "$URIS"
+FINAL_JSON_OUTPUT="["
+
+for ((i=0; i<${#URI_ARRAY[@]}; i++)); do
+    URI=${URI_ARRAY[$i]}
+    echo "Running benchmark for $URI"
+    
+    if [ $BATCH_MODE -eq 1 ]; then
+        batch_results=()
+        for j in {1..4}; do
+            CURRENT_CONNECTIONS=$(($CONNECTIONS * $j / 4))
+            json_outputs=()
+            for run in $(seq 1 $BENCHMARK_RUNS); do
+                CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-${i}-batch${j}-run${run}.log"
+                run_benchmark "$CURRENT_RAW_LOG" "$URI"
+                JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS" "$URI")
+                echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-${i}-batch${j}-run${run}.json"
+                json_outputs+=("${STATS_JSON%.json}-${i}-batch${j}-run${run}.json")
+            done
+            AVG_JSON_OUTPUT=$(average_results "${json_outputs[@]}")
+            echo "$AVG_JSON_OUTPUT" > "${STATS_JSON%.json}-${i}-batch${j}-avg.json"
+            batch_results+=("$AVG_JSON_OUTPUT")
+        done
+        if [ $i -gt 0 ]; then
+            FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT},"
+        fi
+        FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT}$(jq -s '.' <<< "${batch_results[@]}")"
+    else
         json_outputs=()
         for run in $(seq 1 $BENCHMARK_RUNS); do
-            CURRENT_RAW_LOG="${RAW_LOG_PREFIX}-batch${i}-run${run}.log"
-            run_benchmark "$CURRENT_RAW_LOG"
-            JSON_OUTPUT=$(parse_output_to_json "$CURRENT_RAW_LOG" "$THREADS" "$CURRENT_CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS")
-            echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-batch${i}-run${run}.json"
-            json_outputs+=("${STATS_JSON%.json}-batch${i}-run${run}.json")
+            RAW_LOG="${RAW_LOG_PREFIX}-${i}-run${run}.log"
+            run_benchmark "$RAW_LOG" "$URI"
+            JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "$REQ_DURATION" "$WARM_UP_TIME" "$REQUESTS" "$URI")
+            echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-${i}-run${run}.json"
+            json_outputs+=("${STATS_JSON%.json}-${i}-run${run}.json")
         done
         AVG_JSON_OUTPUT=$(average_results "${json_outputs[@]}")
-        echo "$AVG_JSON_OUTPUT" > "${STATS_JSON%.json}-batch${i}-avg.json"
-        jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_CSV"
-        jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" >> "$STATS_MAX_CSV"
-        if [ "$FORMAT" = "markdown" ]; then
-            json_to_markdown "$AVG_JSON_OUTPUT"
-        else
-            echo "$AVG_JSON_OUTPUT"
+        echo "$AVG_JSON_OUTPUT" > "${STATS_JSON%.json}-${i}-avg.json"
+        
+        if [ $i -gt 0 ]; then
+            FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT},"
         fi
-    done
-else
-    psrecord_start
-    json_outputs=()
-    for run in $(seq 1 $BENCHMARK_RUNS); do
-        RAW_LOG="${RAW_LOG_PREFIX}-run${run}.log"
-        run_benchmark "$RAW_LOG"
-        JSON_OUTPUT=$(parse_output_to_json "$RAW_LOG" "$THREADS" "$CONNECTIONS" "" "" "$REQUESTS")
-        echo "$JSON_OUTPUT" > "${STATS_JSON%.json}-run${run}.json"
-        json_outputs+=("${STATS_JSON%.json}-run${run}.json")
-    done
-    AVG_JSON_OUTPUT=$(average_results "${json_outputs[@]}")
-    echo "$AVG_JSON_OUTPUT" > "$STATS_JSON"
-    jq -r '[.connections, .req_per_sec, .req_mean] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_CSV"
-    jq -r '[.connections, .req_per_sec, .req_max] | @csv' <<< "$AVG_JSON_OUTPUT" > "$STATS_MAX_CSV"
-    if [ "$FORMAT" = "markdown" ]; then
-        json_to_markdown "$AVG_JSON_OUTPUT"
-    else
-        echo "$AVG_JSON_OUTPUT"
+        FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT}${AVG_JSON_OUTPUT}"
     fi
+done
+
+FINAL_JSON_OUTPUT="${FINAL_JSON_OUTPUT}]"
+echo "$FINAL_JSON_OUTPUT" > "$STATS_JSON"
+
+if [ "$FORMAT" = "markdown" ]; then
+    echo "$FINAL_JSON_OUTPUT" | jq -r '.[] | "## Results for \(.uri)\n\n\(. | to_entries | map("### \(.key)\n\(.value)\n") | .[])"'
+else
+    echo "$FINAL_JSON_OUTPUT"
 fi
+
 psrecord_end
